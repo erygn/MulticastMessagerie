@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
+import java.util.Random;
 
 import javax.swing.AbstractAction;
 import javax.swing.DefaultListModel;
@@ -31,17 +32,21 @@ public class Main extends JFrame {
 	MulticastReceiver mR;
 	Main main;
 	JPanel mainP;
+	JPanel beginP;
+	JPanel sendP;
+	int id;
 	
 	public Main(String title) {
 		super(title);
 		main = this;
+		id = new Random().nextInt(2048) + 10;
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setPreferredSize(new Dimension(700, 600));
 		setMinimumSize(new Dimension(700, 120));
 		
-		JPanel beginP = new JPanel();
+		beginP = new JPanel();
 		mainP = new JPanel(new BorderLayout());
-		JPanel sendP = new JPanel();
+		sendP = new JPanel();
 		
 		JTextField pseudoChoose = new JTextField(10);
 		JTextField multicastChoose = new JTextField(15);
@@ -65,15 +70,22 @@ public class Main extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (pseudoChoose.getText().length() > 0 && multicastChoose.getText().length() > 0) {
-					user = new User(pseudoChoose.getText());
+					user = new User(pseudoChoose.getText(), id);
 					ipAddr = multicastChoose.getText();
-					pseudo.setText(pseudoChoose.getText());
+					mainTitle.setText(pseudoChoose.getText());
+					//pseudo.setText(pseudoChoose.getText());
 					connectMulticast(multicastChoose.getText());
 					remove(beginP);
 					add(mainP, BorderLayout.CENTER);
 					add(sendP, BorderLayout.SOUTH);
 					repaint();
 					validate();
+					try {
+						new MulticastPublisher().send(new MessageSend(user, user.toString(), "join"), ipAddr);
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
 					addRecivedMsg("Vous avez rejoint le salon " + multicastChoose.getText());
 				}
 			}
@@ -88,13 +100,31 @@ public class Main extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// TODO Auto-generated method stub
-				if (pseudo.getText().length() > 0 && message.getText().length() > 0) {
-					try {
-						new MulticastPublisher().send(new MessageSend(user, message.getText()), ipAddr);
+				if (message.getText().length() > 0) {
+					if (message.getText().substring(0, 1).equals("/")) {
+						if (message.getText().equals("/list")) {
+							try {
+								addRecivedMsg("--- Liste des utilisateurs connectés ---");
+								new MulticastPublisher().send(new MessageSend(user, "list", "command"), ipAddr);
+								message.setText("");
+							} catch (IOException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
+							}
+						} else if (message.getText().equals("/leave")) {
+							leaveGroup();
+						} else {
+							addRecivedMsg("La commande que vous tentez d'envoyer est fausse");
+						}
 						message.setText("");
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
+					} else {
+						try {
+							new MulticastPublisher().send(new MessageSend(user, message.getText(), "message"), ipAddr);
+							message.setText("");
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
 					}
 				}
 			}
@@ -104,19 +134,14 @@ public class Main extends JFrame {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				mR.isRunning = false;
-				add(beginP, BorderLayout.CENTER);
-				remove(mainP);
-				remove(sendP);
-				repaint();
-				validate();
+				leaveGroup();
 			}
 		};
 		quit.addActionListener(quitAction);
 		
 		send.addActionListener(sendAction);
 		message.addActionListener(sendAction);
-		sendP.add(pseudo);
+		sendP.add(mainTitle);
 		sendP.add(message);
 		sendP.add(send);
 		sendP.add(quit);
@@ -124,9 +149,28 @@ public class Main extends JFrame {
 		pack();
 	}
 	
+	public void leaveGroup() {
+		try {
+			new MulticastPublisher().send(new MessageSend(user, user.toString(), "leave"), ipAddr);
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		mR.isRunning = false;
+		add(beginP, BorderLayout.CENTER);
+		remove(mainP);
+		remove(sendP);
+		mR = null;
+		main.mainP.remove(scroll);
+		list = null;
+		messages = null;
+		scroll = null;
+		repaint();
+		validate();
+	}
+	
 	public void connectMulticast(String ip) {
 		mR = new MulticastReceiver(this, ip);
-		mR.start();
 		list = new DefaultListModel<String>();
 		messages = new JList<>(list);
 		scroll = new JScrollPane(messages);

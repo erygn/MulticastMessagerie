@@ -8,6 +8,7 @@ import java.net.MulticastSocket;
 
 import ui.Main;
 import utils.MessageSend;
+import utils.User;
 
 public class MulticastReceiver extends Thread {
     protected MulticastSocket socket = null;
@@ -20,6 +21,7 @@ public class MulticastReceiver extends Thread {
     public MulticastReceiver(Main m, String ipAd) {
     	main = m;
     	ipAddr = ipAd;
+    	start();
     }
 
     @SuppressWarnings("deprecation")
@@ -36,10 +38,26 @@ public class MulticastReceiver extends Thread {
 	            final ByteArrayInputStream bain = new ByteArrayInputStream(packet.getData());
 	            final ObjectInputStream ois = new ObjectInputStream(bain);
 	            MessageSend msgSent = (MessageSend) ois.readObject();
-	            if (msgSent.user.verifUser().equals(main.user.verifUser())) {
-	            	main.addRecivedMsg(msgSent.toStringU());
+	            if (msgSent.getType().equals("leave")) {
+	            	if (!isUserSender(msgSent.getUser(), main.user)) {
+	            		main.addRecivedMsg(msgSent.getUser().toString() + " a quitté la session");
+	            	}
+	            } else if (msgSent.getType().equals("join")) {
+	            	if (!isUserSender(msgSent.getUser(), main.user)) {
+	            		main.addRecivedMsg(msgSent.getUser().toString() + " a rejoint la session");
+	            	}
+	            } else if (msgSent.getType().equals("command")) {
+	            	if (msgSent.getMsg().equals("list") && !isUserSender(msgSent.getUser(), main.user)) {
+	            		new MulticastPublisher().send(new MessageSend(msgSent.getUser(), "listReply" + main.user.toString(), "command"), ipAddr);
+	            	} else if (msgSent.getMsg().length() > 9 && msgSent.getMsg().substring(0, 9).equals("listReply") && isUserSender(msgSent.getUser(), main.user)) {
+	            		main.addRecivedMsg(" - " + msgSent.getMsg().substring(9) + " connecté");
+	            	}
 	            } else {
-	            	main.addRecivedMsg(msgSent.toString());
+	            	if (isUserSender(msgSent.getUser(), main.user)) {
+		            	main.addRecivedMsg(msgSent.toStringU());
+		            } else {
+		            	main.addRecivedMsg(msgSent.toString());
+		            }
 	            }
 	            if (msgSent.toString() == "end") {
 	            	isRunning = false;
@@ -51,5 +69,12 @@ public class MulticastReceiver extends Thread {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+    }
+    
+    public boolean isUserSender(User sender, User main) {
+    	if (sender.verifUser().equals(main.verifUser())) {
+    		return true;
+    	}
+    	return false;
     }
 }

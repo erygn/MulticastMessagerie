@@ -10,9 +10,9 @@ public class User implements Serializable {
 	String user;
 	int uid;
 	
-	public User(String us) {
+	public User(String us, int id) {
 		user = us;
-		uid = new Random().nextInt(1024);
+		uid = id;
 	}
 	
 	@Override
