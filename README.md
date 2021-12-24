@@ -7,4 +7,4 @@
 
 <h4 align="left">Commandes</h4>
 <p align="left">/list - obtenez la liste des utilisateurs sur le groupe</p>
-<p align="left>/leave - quittez le groupe</p>
+<p align="left">/leave - quittez le groupe</p>
